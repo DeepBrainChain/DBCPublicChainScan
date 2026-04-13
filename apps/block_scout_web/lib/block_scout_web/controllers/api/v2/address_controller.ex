@@ -435,6 +435,15 @@ defmodule BlockScoutWeb.API.V2.AddressController do
     exchange_rate = Market.get_coin_exchange_rate()
     total_supply = Chain.total_supply()
 
+    # Trigger on-demand balance refresh for listed addresses so that
+    # stale cached balances get updated for subsequent requests.
+    Task.start(fn ->
+      Enum.each(addresses, fn
+        {address, _tx_count} -> CoinBalanceOnDemand.trigger_fetch(address)
+        address -> CoinBalanceOnDemand.trigger_fetch(address)
+      end)
+    end)
+
     conn
     |> put_status(200)
     |> render(:addresses, %{
